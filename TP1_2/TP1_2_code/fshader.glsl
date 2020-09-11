@@ -8,7 +8,7 @@ in vec3 v_position;
 void main()
 {
     // Set fragment color from texture
-    gl_FragColor = texture2D(texture, v_texcoord);
+    gl_FragColor = vec4(1.,1.,0.,1.);//texture2D(texture, v_texcoord);
 }
 //! [0]
 
