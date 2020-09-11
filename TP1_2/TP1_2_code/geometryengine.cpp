@@ -182,7 +182,7 @@ void GeometryEngine::drawCubeGeometry(QOpenGLShaderProgram *program)
 
 
 void GeometryEngine::initPlaneGeometry(){
-    int size = 16;
+    int size = 4;
     VertexData vertices[size*size];
 
     for(int i = 0; i < size; ++i){
@@ -194,14 +194,27 @@ void GeometryEngine::initPlaneGeometry(){
     GLushort indices[size*size+(2*(size-1))];
     int currentIndex = 0;
     for (int i = 0; i < size*size; ++i) {
-        indices[currentIndex++] = i;
-        indices[currentIndex++] = i+size;
-        if(i%size == 0){
-            if(i+size < size*size)
-                indices[currentIndex++] = i+size; //end duplication
-            indices[currentIndex++] = i+1; //beggin duplication
+
+        indices[currentIndex] = i;
+        //qDebug() << indices[currentIndex];
+        currentIndex++;
+
+        indices[currentIndex] = i+size;
+        //qDebug() << indices[currentIndex];
+        currentIndex++;
+
+        if(i%(size-1) == 0){
+            if(i+size < size*size){
+                indices[currentIndex] = i+size; //end duplication
+                qDebug() << indices[currentIndex-1];
+                currentIndex++;
+            }
+            indices[currentIndex] = i+1; //beggin duplication
+            qDebug() << indices[currentIndex-1];
+            currentIndex++;
         }
     }
+
 
     // Transfer vertex data to VBO 0
     arrayBuf.bind();
