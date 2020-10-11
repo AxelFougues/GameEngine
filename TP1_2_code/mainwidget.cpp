@@ -57,9 +57,15 @@
 MainWidget::MainWidget(QWidget *parent) :
     QOpenGLWidget(parent),
     geometries(0),
-    texture(0),
+    textureGrass(0),
+    textureRock(0),
+    textureSnow(0),
+    textureMap(0),
     angularSpeed(0)
 {
+    xOffset = 0;
+    yOffset = -1;
+    zOffset = 0;
 }
 
 MainWidget::~MainWidget()
@@ -67,10 +73,27 @@ MainWidget::~MainWidget()
     // Make sure the context is current when deleting the texture
     // and the buffers.
     makeCurrent();
-    delete texture;
+    delete textureGrass;
+    delete textureRock;
+    delete textureSnow;
+    delete textureMap;
     delete geometries;
     doneCurrent();
 }
+
+void MainWidget::keyPressEvent(QKeyEvent *e){
+    if(freeView){
+        if(e->key() == Qt::Key_W){zOffset+=0.1;}
+        if(e->key() == Qt::Key_S){zOffset-=0.1;}
+        if(e->key() == Qt::Key_A){xOffset+=0.1;}
+        if(e->key() == Qt::Key_D){xOffset-=0.1;}
+        if(e->key() == Qt::Key_Space){yOffset-=0.1;}
+        if(e->key() == Qt::Key_Shift){yOffset+=0.1;}
+    }
+    if(e->key() == Qt::Key_C){freeView = !freeView;}
+    update();
+}
+
 
 //! [0]
 void MainWidget::mousePressEvent(QMouseEvent *e)
@@ -81,38 +104,46 @@ void MainWidget::mousePressEvent(QMouseEvent *e)
 
 void MainWidget::mouseReleaseEvent(QMouseEvent *e)
 {
-    // Mouse release position - mouse press position
-    QVector2D diff = QVector2D(e->localPos()) - mousePressPosition;
+    if(freeView){
+        // Mouse release position - mouse press position
+        QVector2D diff = QVector2D(e->localPos()) - mousePressPosition;
 
-    // Rotation axis is perpendicular to the mouse position difference
-    // vector
-    QVector3D n = QVector3D(diff.y(), diff.x(), 0.0).normalized();
+        // Rotation axis is perpendicular to the mouse position difference
+        // vector
+        QVector3D n = QVector3D(diff.y(), diff.x(), 0.0).normalized();
 
-    // Accelerate angular speed relative to the length of the mouse sweep
-    qreal acc = diff.length() / 100.0;
+        // Accelerate angular speed relative to the length of the mouse sweep
+        qreal acc = diff.length() / 10.0;
 
-    // Calculate new rotation axis as weighted sum
-    rotationAxis = (rotationAxis * angularSpeed + n * acc).normalized();
-
-    // Increase angular speed
-    angularSpeed += acc;
+        // Calculate new rotation axis as weighted sum
+        rotationAxis = ( rotationAxis * angularSpeed + n * acc).normalized();
+        rotationAxis[0] = 0;
+        rotationAxis[2] = 0;
+        // Increase angular speed
+        angularSpeed += acc;
+    }
 }
 //! [0]
 
 //! [1]
 void MainWidget::timerEvent(QTimerEvent *)
 {
-    // Decrease angular speed (friction)
-    angularSpeed *= 0.99;
+    if(freeView){
+        // Decrease angular speed (friction)
+        angularSpeed *= 0.70;
 
-    // Stop rotation when speed goes below threshold
-    if (angularSpeed < 0.01) {
-        angularSpeed = 0.0;
-    } else {
-        // Update rotation
-        rotation = QQuaternion::fromAxisAndAngle(rotationAxis, angularSpeed) * rotation;
+        // Stop rotation when speed goes below threshold
+        if (angularSpeed < 0.01) {
+            angularSpeed = 0.0;
+        } else {
+            // Update rotation
+            rotation = QQuaternion::fromAxisAndAngle(rotationAxis, angularSpeed) * rotation;
 
-        // Request an update
+            // Request an update
+            update();
+        }
+    }else{
+        rotation = QQuaternion::fromAxisAndAngle(0,1,0, 0.5) * rotation;
         update();
     }
 }
@@ -132,7 +163,7 @@ void MainWidget::initializeGL()
     glEnable(GL_DEPTH_TEST);
 
     // Enable back face culling
-    glEnable(GL_CULL_FACE);
+    //glEnable(GL_CULL_FACE);
 //! [2]
 
     geometries = new GeometryEngine;
@@ -165,18 +196,30 @@ void MainWidget::initShaders()
 //! [4]
 void MainWidget::initTextures()
 {
-    // Load cube.png image
-    texture = new QOpenGLTexture(QImage(":/cube.png").mirrored());
+    // Load image
+    textureGrass = new QOpenGLTexture(QImage(":/grass.png").mirrored());
+    textureRock = new QOpenGLTexture(QImage(":/rock.png").mirrored());
+    textureSnow = new QOpenGLTexture(QImage(":/snowrocks.png").mirrored());
+    textureMap = new QOpenGLTexture(QImage(":/heightmap-1024x1024.png").mirrored());
 
     // Set nearest filtering mode for texture minification
-    texture->setMinificationFilter(QOpenGLTexture::Nearest);
+    textureGrass->setMinificationFilter(QOpenGLTexture::Nearest);
+    textureRock->setMinificationFilter(QOpenGLTexture::Nearest);
+    textureSnow->setMinificationFilter(QOpenGLTexture::Nearest);
+    textureMap->setMinificationFilter(QOpenGLTexture::Nearest);
 
     // Set bilinear filtering mode for texture magnification
-    texture->setMagnificationFilter(QOpenGLTexture::Linear);
+    textureGrass->setMagnificationFilter(QOpenGLTexture::Linear);
+    textureRock->setMagnificationFilter(QOpenGLTexture::Linear);
+    textureSnow->setMagnificationFilter(QOpenGLTexture::Linear);
+    textureMap->setMagnificationFilter(QOpenGLTexture::Linear);
 
     // Wrap texture coordinates by repeating
     // f.ex. texture coordinate (1.1, 1.2) is same as (0.1, 0.2)
-    texture->setWrapMode(QOpenGLTexture::Repeat);
+    textureGrass->setWrapMode(QOpenGLTexture::Repeat);
+    textureRock->setWrapMode(QOpenGLTexture::Repeat);
+    textureSnow->setWrapMode(QOpenGLTexture::Repeat);
+    textureMap->setWrapMode(QOpenGLTexture::Repeat);
 }
 //! [4]
 
@@ -187,7 +230,7 @@ void MainWidget::resizeGL(int w, int h)
     qreal aspect = qreal(w) / qreal(h ? h : 1);
 
     // Set near plane to 3.0, far plane to 7.0, field of view 45 degrees
-    const qreal zNear = 3.0, zFar = 7.0, fov = 45.0;
+    const qreal zNear = 1.0, zFar = 70.0, fov = 45.0;
 
     // Reset projection
     projection.setToIdentity();
@@ -201,22 +244,39 @@ void MainWidget::paintGL()
 {
     // Clear color and depth buffer
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    texture->bind();
+    glClearColor(0.53,0.81,0.92,0.8);
+    textureGrass->bind(0);
+    textureRock->bind(1);
+    textureSnow->bind(2);
+    textureMap->bind(3);
 
 //! [6]
     // Calculate model view transformation
     QMatrix4x4 matrix;
-    matrix.translate(0.0, 0.0, -5.0);
-    matrix.rotate(rotation);
+    if(freeView){
+        matrix.rotate(rotation);
+        matrix.translate(xOffset, yOffset, zOffset);
+    }else{
 
+
+        matrix.rotate( QQuaternion::fromAxisAndAngle(1,0,0,45));
+
+        matrix.rotate(rotation);
+
+        matrix.translate(0, -7, -0);
+
+    }
     // Set modelview-projection matrix
     program.setUniformValue("mvp_matrix", projection * matrix);
 //! [6]
 
     // Use texture unit 0 which contains cube.png
-    program.setUniformValue("texture", 0);
+    program.setUniformValue("textureGrass", 0);
+    program.setUniformValue("textureRock", 1);
+    program.setUniformValue("textureSnow", 2);
+    program.setUniformValue("textureMap", 3);
 
     // Draw cube geometry
-    geometries->drawCubeGeometry(&program);
+    //geometries->drawCubeGeometry(&program);
+    geometries->drawPlaneGeometry(&program);
 }

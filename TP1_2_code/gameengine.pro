@@ -1,5 +1,8 @@
 QT       += core gui widgets
 
+CONFIG += c++11
+QMAKE_CXXFLAGS += -std=c++0x
+
 TARGET = gameengine
 TEMPLATE = app
 

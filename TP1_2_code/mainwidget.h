@@ -73,6 +73,7 @@ public:
     ~MainWidget();
 
 protected:
+    void keyPressEvent(QKeyEvent *e) override;
     void mousePressEvent(QMouseEvent *e) override;
     void mouseReleaseEvent(QMouseEvent *e) override;
     void timerEvent(QTimerEvent *e) override;
@@ -89,7 +90,10 @@ private:
     QOpenGLShaderProgram program;
     GeometryEngine *geometries;
 
-    QOpenGLTexture *texture;
+    QOpenGLTexture *textureGrass;
+    QOpenGLTexture *textureRock;
+    QOpenGLTexture *textureSnow;
+    QOpenGLTexture *textureMap;
 
     QMatrix4x4 projection;
 
@@ -97,6 +101,9 @@ private:
     QVector3D rotationAxis;
     qreal angularSpeed;
     QQuaternion rotation;
+
+    float xOffset,yOffset,zOffset;
+    bool freeView = true;
 };
 
 #endif // MAINWIDGET_H
